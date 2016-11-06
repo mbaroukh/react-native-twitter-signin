@@ -32,8 +32,7 @@ import io.fabric.sdk.android.Fabric;
 
 public class TwitterSigninModule extends ReactContextBaseJavaModule implements ActivityEventListener {
 
-    private final int RESULT_CANCELED = 0;
-    TwitterAuthClient twitterAuthClient;
+    private TwitterAuthClient twitterAuthClient;
 
     public TwitterSigninModule(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -51,8 +50,9 @@ public class TwitterSigninModule extends ReactContextBaseJavaModule implements A
         return "TwitterSignin";
     }
 
+
     @ReactMethod
-    public void logIn(String consumerKey, String consumerSecret,  final Callback callback) {
+    private void logIn(String consumerKey, String consumerSecret, final boolean requestEmail, final Callback callback, final Boolean withEmail) {
         TwitterAuthConfig authConfig = new TwitterAuthConfig(consumerKey, consumerSecret);
         Fabric.with(getReactApplicationContext(), new Twitter(authConfig));
         twitterAuthClient = new TwitterAuthClient();
@@ -68,17 +68,29 @@ public class TwitterSigninModule extends ReactContextBaseJavaModule implements A
                 map.putString("name", session.getUserName());
                 map.putString("userID", Long.toString(session.getUserId()));
                 map.putString("userName", session.getUserName());
+                if (withEmail!=null && !withEmail) {
+                    twitterAuthClient=null;
+                    callback.invoke(null, map);
+                    return;
+                }
                 twitterAuthClient.requestEmail(session, new com.twitter.sdk.android.core.Callback<String>() {
                     @Override
                     public void success(Result<String> result) {
                         map.putString("email", result.data);
+                        twitterAuthClient=null;
                         callback.invoke(null, map);
                     }
 
                     @Override
                     public void failure(TwitterException exception) {
-                        // invoke callback with no email key
-                        callback.invoke(null, map);
+                        twitterAuthClient=null;
+                        if (withEmail!=null && withEmail) {
+                            // email was required.
+                            callback.invoke(exception, null);
+                        } else {
+                            // do not fail for compatibility
+                            callback.invoke(null, map);
+                        }
                     }
                 });
             }
@@ -86,6 +98,7 @@ public class TwitterSigninModule extends ReactContextBaseJavaModule implements A
             @Override
             public void failure(TwitterException exception) {
                 Log.d("failure", exception.toString());
+                twitterAuthClient=null;
                 callback.invoke(exception, null);
             }
         });
@@ -94,7 +107,6 @@ public class TwitterSigninModule extends ReactContextBaseJavaModule implements A
     @Override
     public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
         if(twitterAuthClient != null && twitterAuthClient.getRequestCode()==requestCode) {
-            boolean twitterLoginWasCanceled = (resultCode == RESULT_CANCELED);
             twitterAuthClient.onActivityResult(requestCode, resultCode, data);
         }
     }
