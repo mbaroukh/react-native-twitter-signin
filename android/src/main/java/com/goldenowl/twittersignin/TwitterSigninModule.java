@@ -50,9 +50,20 @@ public class TwitterSigninModule extends ReactContextBaseJavaModule implements A
         return "TwitterSignin";
     }
 
-
     @ReactMethod
-    private void logIn(String consumerKey, String consumerSecret, final boolean requestEmail, final Callback callback, final Boolean withEmail) {
+    public void logIn(String consumerKey, String consumerSecret, final Callback callback) {
+        logIn(consumerKey, consumerSecret, false, callback);
+    }
+    @ReactMethod
+    public void logInWithEmail(String consumerKey, String consumerSecret, final Callback callback) {
+        logIn(consumerKey, consumerSecret, true, callback);
+    }
+    @ReactMethod
+    public void logInWithOptionalEmail(String consumerKey, String consumerSecret, final Callback callback) {
+        logIn(consumerKey, consumerSecret, null, callback);
+    }
+
+    private void logIn(String consumerKey, String consumerSecret, final Boolean withEmail, final Callback callback) {
         TwitterAuthConfig authConfig = new TwitterAuthConfig(consumerKey, consumerSecret);
         Fabric.with(getReactApplicationContext(), new Twitter(authConfig));
         twitterAuthClient = new TwitterAuthClient();
@@ -68,7 +79,7 @@ public class TwitterSigninModule extends ReactContextBaseJavaModule implements A
                 map.putString("name", session.getUserName());
                 map.putString("userID", Long.toString(session.getUserId()));
                 map.putString("userName", session.getUserName());
-                if (withEmail!=null && !withEmail) {
+                if (!withEmail) {
                     twitterAuthClient=null;
                     callback.invoke(null, map);
                     return;
